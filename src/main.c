@@ -17,9 +17,9 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define SAMPLE_COUNT (2048)
-#define WIDTH (HEIGHT)
-#define HEIGHT (2160 * 2)
+#define SAMPLE_COUNT (8)
+#define WIDTH (3 * HEIGHT / 2)
+#define HEIGHT (1080)
 #define ASPECT_RATIO ((f32)WIDTH / HEIGHT)
 #define INV_RAND_MAX (1.0f / RAND_MAX)
 
@@ -62,11 +62,8 @@ i32 main(void) {
   }
 
   clock_t after = clock();
-
-  puts("Render done.");
-
   f32 elapsed = (f32)(after - before) / CLOCKS_PER_SEC;
-  printf("\n%f s\n", elapsed);
+  printf("Render done, took %g min (%g s).\n", elapsed / 60.0f, elapsed);
 
   free(rgb_framebuffer);
   free(pixels);

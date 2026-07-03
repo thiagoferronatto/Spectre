@@ -44,7 +44,7 @@ Scene default_scene(void) {
                       .material_index = 6};
 
   Camera *camera = malloc(sizeof(Camera));
-  *camera = custom_camera(36, 36, 85);
+  *camera = full_frame(18);
 
   scene.camera = camera;
   scene.light_pos = (Vec3){-2, 1, -1};
