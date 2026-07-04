@@ -12,16 +12,25 @@ Scene default_scene(void) {
 
   const i32 material_count = 9;
   Material *materials = malloc(material_count * sizeof(Material));
-  materials[0] = (Material){.shine = 1600, .color = SPD_RED, .ior = 1.5};
-  materials[1] = (Material){.shine = 1200, .color = SPD_GREEN, .ior = 1.5};
-  materials[2] = (Material){.shine = 800, .color = SPD_BLUE, .ior = 1.5};
-  materials[3] = (Material){.shine = 400, .color = SPD_CYAN, .ior = 1.5};
-  materials[4] = (Material){.shine = 200, .color = SPD_MAGENTA, .ior = 1.5};
-  materials[5] = (Material){.shine = 50, .color = SPD_YELLOW, .ior = 1.5};
-  materials[6] = (Material){.shine = 50, .color = SPD_CHECKERS_XZ, .ior = 1.5};
-  materials[7] = (Material){.shine = 1600, .color = SPD_RED, .ior = 1.5};
+  materials[0] = (Material){
+      .roughness = 0, .color = SPD_RED, .ior_A = 1.5, .ior_B = 0.00354};
+  materials[1] = (Material){
+      .roughness = 0.01, .color = SPD_GREEN, .ior_A = 1.5, .ior_B = 0.00354};
+  materials[2] = (Material){
+      .roughness = 0.05, .color = SPD_BLUE, .ior_A = 1.5, .ior_B = 0.00354};
+  materials[3] = (Material){
+      .roughness = 0.1, .color = SPD_CYAN, .ior_A = 1.5, .ior_B = 0.00354};
+  materials[4] = (Material){
+      .roughness = 0.25, .color = SPD_MAGENTA, .ior_A = 1.5, .ior_B = 0.00354};
+  materials[5] = (Material){
+      .roughness = 0.5, .color = SPD_YELLOW, .ior_A = 1.5, .ior_B = 0.00354};
+  materials[6] = (Material){
+      .roughness = 1, .color = SPD_CHECKERS_XZ, .ior_A = 1.5, .ior_B = 0.00354};
+  materials[7] = (Material){
+      .roughness = 0, .color = SPD_RED, .ior_A = 1.318181818, .ior_B = 0.1};
   materials[7].transmissive = true;
-  materials[8] = (Material){.shine = 1600, .color = SPD_BLACK, .ior = 1.5};
+  materials[8] = (Material){
+      .roughness = 1, .color = SPD_BLACK, .ior_A = 1.5, .ior_B = 0.00354};
 
   Sphere *spheres = malloc(17 * sizeof(Sphere));
   i32 mtl_idx = 0;
@@ -48,7 +57,7 @@ Scene default_scene(void) {
 
   scene.camera = camera;
   scene.light_pos = (Vec3){-2, 1, -1};
-  scene.light_intensity = 7.5 * M_PI;
+  scene.light_intensity = 40;
   scene.light_r = 0.1;
   scene.light_color = SPD_ILL_E;
   scene.ambient_color = SPD_ILL_AMBIENT;

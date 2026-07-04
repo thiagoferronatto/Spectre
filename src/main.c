@@ -17,11 +17,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define SAMPLE_COUNT (8)
+#define SAMPLE_COUNT (1024)
 #define WIDTH (3 * HEIGHT / 2)
-#define HEIGHT (1080)
+#define HEIGHT (2160)
 #define ASPECT_RATIO ((f32)WIDTH / HEIGHT)
-#define INV_RAND_MAX (1.0f / RAND_MAX)
 
 void render(const Scene *scene, Vec3 *xyz_framebuffer, i32 frame, bool do_dof);
 void post_process(const Vec3 *xyz, Vec3 *rgb, PixelRgb *pixels, f32 factor);
@@ -39,7 +38,7 @@ i32 main(void) {
   Scene scene = default_scene();
 
   const i32 frame_count = 1;
-  const f32 total_shift = 2;
+  const f32 total_shift = 2 * .75;
   const f32 shift_per_frame = total_shift / frame_count;
 
   puts("Rendering...");
@@ -138,7 +137,8 @@ void post_process(const Vec3 *xyz, Vec3 *rgb, PixelRgb *pixels, f32 factor) {
   for (i32 i = 0; i < WIDTH * HEIGHT; ++i) {
     Vec3 xyz_tmp = vec3_divs(xyz[i], (f32)SAMPLE_COUNT);
     xyz_tmp = vec3_muls(xyz_tmp, factor);
-    rgb[i] = vec3_maxs(xyz_to_rgb(xyz_tmp), 0);
+    rgb[i] = xyz_to_rgb(xyz_tmp);
+    rgb[i] = vec3_maxs(rgb[i], 0);
 
     // tone mapping
     f32 a = 2.51f;
@@ -169,6 +169,7 @@ void post_process(const Vec3 *xyz, Vec3 *rgb, PixelRgb *pixels, f32 factor) {
 
 void save_frame(const PixelRgb *pixels, i32 frame_index) {
   char filename[256] = {0};
-  sprintf(filename, "anim/%d.png", frame_index);
+  sprintf(filename, "anim/%d_%dp_%dsamples.png", frame_index, HEIGHT,
+          SAMPLE_COUNT);
   stbi_write_png(filename, WIDTH, HEIGHT, 3, pixels, 0);
 }

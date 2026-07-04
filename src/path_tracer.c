@@ -7,6 +7,8 @@
 #include "util.h"
 
 static Vec3 shift_light(Vec3 light_pos, f32 light_radius) {
+  if (light_radius == 0)
+    return light_pos;
   Vec3 shift;
   f32 light_radius_sq = light_radius * light_radius;
   do {
@@ -91,16 +93,25 @@ f32 trace_ray(const Scene *scene, RayTracingArgs *args) {
   // fresnel
 
   // cauchy's equation
-  const f32 A = 1.4580, B = 0.00354; // fused silica: A = 1.4580, B = 0.00354
+  f32 A = material->ior_A, B = material->ior_B;
   f32 lambda_um = args->lambda * 0.001f; // cauchy's equation is in micrometers
   f32 ior = A + B / (lambda_um * lambda_um);
   if (closest_hit.front_face)
     ior = 1.0f / ior;
 
-  // schlick's approximation
-  f32 r0 = (1 - ior) / (1 + ior);
-  r0 *= r0;
-  f32 fresnel = r0 + (1 - r0) * powf(1 + d_dot_n, 5);
+  // dielectric fresnel equations
+  f32 fresnel;
+  f32 cos_i = fabsf(d_dot_n);
+  f32 sin_i2 = fmaxf(0.0f, 1.0f - cos_i * cos_i);
+  f32 sin_t2 = sin_i2 * (ior * ior);
+  if (sin_t2 < 1.0f) {
+    f32 cos_t = sqrtf(fmaxf(0.0f, 1.0f - sin_t2));
+    f32 r_s = (ior * cos_i - cos_t) / (ior * cos_i + cos_t);
+    f32 r_p = (ior * cos_t - cos_i) / (ior * cos_t + cos_i);
+    fresnel = 0.5f * (r_s * r_s + r_p * r_p);
+  } else {
+    fresnel = 1.0f;
+  }
 
   // direct (always compute, no need for extra rays)
   f32 direct_light = 0;
@@ -118,9 +129,11 @@ f32 trace_ray(const Scene *scene, RayTracingArgs *args) {
     diffuse_term *= diffuse_factor;
     Vec3 half_dir = vec3_normalize(vec3_add(light_dir, view_dir));
     f32 n_dot_h = clampf(vec3_dot(normal, half_dir), 0, 1);
-    f32 specular_factor = powf(n_dot_h, material->shine);
-    specular_factor += powf(n_dot_h, material->shine * 0.1) * 0.2;
-    specular_factor *= fresnel * (material->shine + 8) / (8 * M_PI);
+    f32 r = material->roughness;
+    f32 shine = clampf(2.0f / (r * r), 50, 3200); // arbitrary mapping function
+    f32 specular_factor = powf(n_dot_h, shine);
+    specular_factor += powf(n_dot_h, shine * 0.1) * 0.2;
+    specular_factor *= fresnel * (shine + 8) / (8 * M_PI);
     f32 surface_reflection = specular_factor;
     if (!material->transmissive)
       surface_reflection += diffuse_term;
@@ -133,21 +146,21 @@ f32 trace_ray(const Scene *scene, RayTracingArgs *args) {
   f32 bounce_light = 0;
   f32 refracted_light = 0;
   if (randf(0, 1) < fresnel) {
-  total_internal_reflection:
     // reflections (indirect specular, compute by chance)
     Vec3 twice_projection = vec3_muls(normal, 2 * d_dot_n);
     Vec3 reflection_dir = vec3_sub(args->ray.direction, twice_projection);
-    // reflection_dir = vec3_normalize(reflection_dir);
-    f32 s = material->shine;
-    f32 reflection_error = 0.01 * (1600 / s - 1);
-    f32 reflection_error_sq = reflection_error * reflection_error;
+    f32 reflection_error = material->roughness;
     Vec3 shift;
     do {
-      shift.x = randf(-reflection_error, reflection_error);
-      shift.y = randf(-reflection_error, reflection_error);
-      shift.z = randf(-reflection_error, reflection_error);
-    } while (vec3_dot(shift, shift) > reflection_error_sq);
+      shift.x = randf(-1, 1);
+      shift.y = randf(-1, 1);
+      shift.z = randf(-1, 1);
+    } while (vec3_dot(shift, shift) > 1);
+    shift = vec3_muls(shift, reflection_error);
     reflection_dir = vec3_normalize(vec3_add(reflection_dir, shift));
+    f32 r_dot_n = vec3_dot(reflection_dir, normal);
+    if (r_dot_n < 0)
+      reflection_dir = vec3_sub(reflection_dir, vec3_muls(normal, 2 * r_dot_n));
     Ray3 new_ray = {.origin = point, .direction = reflection_dir};
     RayTracingArgs next_args = *args;
     next_args.ray = new_ray;
@@ -161,8 +174,8 @@ f32 trace_ray(const Scene *scene, RayTracingArgs *args) {
 
       f32 sin_2_theta_i = fmaxf(0, 1 - d_dot_n * d_dot_n);
       f32 sin_2_theta_t = sin_2_theta_i * (ior * ior);
-      if (sin_2_theta_t >= 1)
-        goto total_internal_reflection;
+      // if (sin_2_theta_t >= 1)
+      //   goto total_internal_reflection;
       f32 cos_theta_t = sqrtf(fmaxf(0, 1 - sin_2_theta_t));
       Vec3 refr_dir = vec3_add(vec3_muls(args->ray.direction, ior),
                                vec3_muls(normal, -ior * d_dot_n - cos_theta_t));

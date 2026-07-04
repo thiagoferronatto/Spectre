@@ -10,8 +10,9 @@
 
 typedef struct Material {
   SPD color;
-  f32 shine;
-  f32 ior;
+  f32 roughness;
+  f32 ior_A;
+  f32 ior_B;
   bool transmissive;
 } Material;
 
