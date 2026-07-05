@@ -8,4 +8,4 @@ A spectral path tracer that focuses on physically accurate light behavior. As of
 
 <img width="3240" height="2160" alt="0_2160p_8192samples" src="https://github.com/user-attachments/assets/5b603c0e-21f6-4e57-820d-bae8ec62da03" />
 
-https://github.com/user-attachments/assets/bbb55771-4347-41d6-870e-2e803eebcb09
+https://github.com/user-attachments/assets/5429044b-4811-4cbc-b100-00dc26b01b63
