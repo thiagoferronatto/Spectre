@@ -295,7 +295,7 @@ static inline f32 lambda_response(f32 lambda, SPD spd, Vec3 point) {
   case SPD_CHECKERS_XZ: {
     i32 cx = (i32)floorf(point.x * 5.0f);
     i32 cz = (i32)floorf(point.z * 5.0f);
-    return (cx + cz) % 2 ? 0.6 : 0.005;
+    return (cx + cz) % 2 ? 0.5 : 0.005;
   }
   case SPD_BLACK:
     return 0;

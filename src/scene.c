@@ -54,10 +54,12 @@ Scene default_scene(void) {
 
   Camera *camera = malloc(sizeof(Camera));
   *camera = full_frame(18);
+  camera->focal_distance = 0.355;
+  //   camera->f_number = 0.1;
 
   scene.camera = camera;
   scene.light_pos = (Vec3){-2, 1, -1};
-  scene.light_intensity = 40;
+  scene.light_intensity = 50;
   scene.light_r = 0.1;
   scene.light_color = SPD_ILL_E;
   scene.ambient_color = SPD_ILL_AMBIENT;

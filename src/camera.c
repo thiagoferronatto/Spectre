@@ -16,7 +16,7 @@ Camera custom_camera(f32 sensor_width_mm, f32 sensor_height_mm,
   camera.sensor_width = 0.001 * sensor_width_mm;
   camera.sensor_height = 0.001 * sensor_height_mm;
   camera.focal_distance = 0.75;
-  camera.f_number = 0.5;
+  camera.f_number = 1.8;
   return camera;
 }
 
