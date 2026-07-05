@@ -17,7 +17,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define SAMPLE_COUNT (1024)
+#define SAMPLE_COUNT (4096 * 2)
 #define WIDTH (3 * HEIGHT / 2)
 #define HEIGHT (2160)
 #define ASPECT_RATIO ((f32)WIDTH / HEIGHT)
@@ -27,6 +27,8 @@ void post_process(const Vec3 *xyz, Vec3 *rgb, PixelRgb *pixels, f32 factor);
 void save_frame(const PixelRgb *pixels, i32 frame_index);
 
 i32 main(void) {
+  srand(time(NULL));
+
   puts("Allocating memory...");
   Vec3 *xyz_framebuffer = calloc(WIDTH * HEIGHT, sizeof(Vec3));
   Vec3 *rgb_framebuffer = malloc(WIDTH * HEIGHT * sizeof(Vec3));
@@ -49,7 +51,7 @@ i32 main(void) {
     memset(rgb_framebuffer, 0, WIDTH * HEIGHT * sizeof(Vec3));
     memset(pixels, 0, WIDTH * HEIGHT * sizeof(PixelRgb));
 
-    render(&scene, xyz_framebuffer, frame, false);
+    render(&scene, xyz_framebuffer, frame, true);
 
     // post-processing
     f32 factor = WAVELENGTH_RANGE / illuminant_N(scene.light_color);
@@ -82,6 +84,7 @@ void render(const Scene *scene, Vec3 *xyz_framebuffer, i32 frame, bool do_dof) {
   i32 rows_done = 0;
 #pragma omp parallel for schedule(dynamic, 1)
   for (i32 row = 0; row < HEIGHT; ++row) {
+    u32 seeds[4] = {rand(), rand(), rand(), rand()};
     Vec3 pixel_position = {.z = -scene->camera->focal_length};
     i32 row_offset = WIDTH * row;
     pixel_position.y = HEIGHT / 2 - row - 0.5f;
@@ -95,21 +98,23 @@ void render(const Scene *scene, Vec3 *xyz_framebuffer, i32 frame, bool do_dof) {
         Vec3 shift = {0};
         if (do_dof) {
           do {
-            shift.x = randf(-pupil_radius, pupil_radius);
-            shift.y = randf(-pupil_radius, pupil_radius);
+            shift.x = randf(seeds, -pupil_radius, pupil_radius);
+            shift.y = randf(seeds, -pupil_radius, pupil_radius);
           } while (vec3_dot(shift, shift) > pupil_radius_sq);
         }
         Vec3 origin = vec3_add(scene->camera->position, shift);
         Vec3 jittered_pixel_position = scaled_pixel_position;
-        jittered_pixel_position.x += randf(-half_pix_dim.x, half_pix_dim.x);
-        jittered_pixel_position.y += randf(-half_pix_dim.y, half_pix_dim.y);
+        jittered_pixel_position.x +=
+            randf(seeds, -half_pix_dim.x, half_pix_dim.x);
+        jittered_pixel_position.y +=
+            randf(seeds, -half_pix_dim.y, half_pix_dim.y);
         jittered_pixel_position = vec3_muls(jittered_pixel_position, f);
         Vec3 raw_ray_dir = vec3_sub(jittered_pixel_position, origin);
         Vec3 ray_dir = vec3_normalize(raw_ray_dir);
         Ray3 ray = {.origin = origin, .direction = ray_dir};
-        f32 lambda = bucket_start + randf(0, bucket_width);
+        f32 lambda = bucket_start + randf(seeds, 0, bucket_width);
         RayTracingArgs args = {.ray = ray, .depth = 0, .lambda = lambda};
-        f32 intensity = trace_ray(scene, &args);
+        f32 intensity = trace_ray(seeds, scene, &args);
         Vec3 xyz = vec3_muls(wavelength_to_xyz(lambda), intensity);
         xyz_acc = vec3_add(xyz_acc, xyz);
         bucket_start += bucket_width;
@@ -134,34 +139,38 @@ void render(const Scene *scene, Vec3 *xyz_framebuffer, i32 frame, bool do_dof) {
 }
 
 void post_process(const Vec3 *xyz, Vec3 *rgb, PixelRgb *pixels, f32 factor) {
+  u32 seeds[4] = {rand(), rand(), rand(), rand()};
   for (i32 i = 0; i < WIDTH * HEIGHT; ++i) {
-    Vec3 xyz_tmp = vec3_divs(xyz[i], (f32)SAMPLE_COUNT);
+    Vec3 xyz_tmp = vec3_divs(xyz[i], SAMPLE_COUNT);
     xyz_tmp = vec3_muls(xyz_tmp, factor);
     rgb[i] = xyz_to_rgb(xyz_tmp);
     rgb[i] = vec3_maxs(rgb[i], 0);
+    // f32 min_channel = fminf(rgb[i].x, fminf(rgb[i].y, rgb[i].z));
+    // if (min_channel < 0)
+    //   rgb[i] = vec3_subs(rgb[i], min_channel);
 
-    // tone mapping
-    f32 a = 2.51f;
-    f32 b = 0.03f;
-    f32 c = 2.43f;
-    f32 d = 0.59f;
-    f32 e = 0.14f;
-    Vec3 a_rgb = vec3_muls(rgb[i], a);
-    Vec3 ab_rgb = vec3_adds(a_rgb, b);
-    Vec3 ab_rgb2 = vec3_mul(ab_rgb, rgb[i]);
-    Vec3 c_rgb = vec3_muls(rgb[i], c);
-    Vec3 cd_rgb = vec3_adds(c_rgb, d);
-    Vec3 cd_rgb2 = vec3_mul(cd_rgb, rgb[i]);
-    Vec3 cde_rgb2 = vec3_adds(cd_rgb2, e);
-    Vec3 mapped = vec3_div(ab_rgb2, cde_rgb2);
-    Vec3 clamped = vec3_clamp(mapped, 0, 1);
+    // khronos pbr tone mapping
+    const f32 f90 = 0.04;
+    const f32 ks = 0.8 - f90;
+    const f32 kd = 0.15;
+    f32 x = fminf(rgb[i].x, fminf(rgb[i].y, rgb[i].z));
+    f32 f = x <= 2 * f90 ? x - x * x / (4 * f90) : f90;
+    f32 p = fmaxf(rgb[i].x - f, fmaxf(rgb[i].y - f, rgb[i].z - f));
+    f32 pn = 1 - (1 - ks) * (1 - ks) / (p + 1 - 2 * ks);
+    f32 g = 1.0f / (kd * (p - pn) + 1);
+    Vec3 clamped = {0};
+    if (p <= ks)
+      clamped = vec3_subs(rgb[i], f);
+    else
+      clamped = vec3_add(vec3_muls(vec3_subs(rgb[i], f), g * pn / p),
+                         vec3_muls((Vec3){pn, pn, pn}, 1 - g));
 
     // gamma correction
     Vec3 corrected = vec3_pows(clamped, 1 / 2.2);
 
     // dithering
     Vec3 scaled = vec3_muls(corrected, 255);
-    Vec3 dithered = vec3_round(vec3_adds(scaled, randf(-0.5, 0.5)));
+    Vec3 dithered = vec3_round(vec3_adds(scaled, randf(seeds, -0.5, 0.5)));
     clamped = vec3_clamp(dithered, 0, 255);
     pixels[i] = (PixelRgb){(u8)clamped.x, (u8)clamped.y, (u8)clamped.z};
   }

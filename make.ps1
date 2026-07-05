@@ -1,7 +1,7 @@
 mkdir x64/bin -Force | Out-Null
 clang `
   src/main.c src/color.c src/geometry.c `
-  src/scene.c src/camera.c src/path_tracer.c `
+  src/scene.c src/camera.c `
   -o x64/bin/spectre.exe `
   -O3 `
   -march=native `
